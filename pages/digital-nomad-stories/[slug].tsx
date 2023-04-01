@@ -1,38 +1,55 @@
-import path from 'path'
-import fs from 'fs'
-import { GetStaticPaths, GetStaticProps, NextPage } from 'next'
-import { ParsedUrlQuery } from 'querystring'
-import { Box, Flex, Heading, Stack } from '@chakra-ui/react'
-
+import path from "path";
+import fs from "fs";
+import { GetStaticPaths, GetStaticProps, NextPage } from "next";
+import { ParsedUrlQuery } from "querystring";
+import { Box, Flex, Heading, Stack } from "@chakra-ui/react";
+import { createClient } from "@supabase/supabase-js";
 
 interface IParams extends ParsedUrlQuery {
-  slug: string
+  slug: string;
 }
 
 type TranscriptPageProps = {
-  title: string
-  content: string
-}
+  title: string;
+  content: string;
+};
 
-export const getStaticPaths: GetStaticPaths = () => {
-  const transcriptDir = path.join(process.cwd(), 'public/transcripts')
-  const filenames = fs.readdirSync(transcriptDir)
+const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL!}:${parseInt(process.env.PORT!, 10) || 3000}`;
 
-  const paths = filenames.map((filename) => ({ params: { slug: filename.replace(/\.txt$/, '') } }))
+// get all slugs from episodes table on supabase and return them as paths
+export const getStaticPaths: GetStaticPaths = async () => {
 
-  return { paths, fallback: false }
-}
+  const res = await fetch(`${baseUrl}/api/getSlugs`);
+  const data = await res.json()
+  const slugs = data as string[];
 
-export const getStaticProps: GetStaticProps<{ content: String }> = async (context) => {
-  const { slug } = context.params as IParams
-  const transcriptPath = path.join(process.cwd(), `public/transcripts/${slug}.txt`)
-  const content = fs.readFileSync(transcriptPath, 'utf8')
-  return { props: { title: slug, content } }
-}
+  const paths = slugs.map((slug) => ({ params: { slug } }));
+  return { paths, fallback: false };
+};
+
+export const getStaticProps: GetStaticProps<{ content: String }> = async (
+  context
+) => {
+  const { slug } = context.params as IParams;
+  const res = await fetch(`${baseUrl}/api/getTranscriptBySlug?slug=${slug}`);
+  const data = await res.json()
+
+  const content = data.transcript as string;
+  return { props: { title: slug, content } };
+};
 
 const TranscriptPage: NextPage<TranscriptPageProps> = ({ title, content }) => {
   return (
-    <Stack as="article" spacing={8} justifyContent="center" alignItems="flex-start" m="0 auto 4rem auto" maxWidth="700px" w="100%" px={2}>
+    <Stack
+      as="article"
+      spacing={8}
+      justifyContent="center"
+      alignItems="flex-start"
+      m="0 auto 4rem auto"
+      maxWidth="700px"
+      w="100%"
+      px={2}
+    >
       <Flex
         flexDirection="column"
         justifyContent="flex-start"
@@ -44,19 +61,19 @@ const TranscriptPage: NextPage<TranscriptPageProps> = ({ title, content }) => {
           {title}
         </Heading>
         <Flex
-            justify="space-between"
-            align={["initial", "center"]}
-            direction={["column", "row"]}
-            mt={2}
-            w="100%"
-            mb={4}>
+          justify="space-between"
+          align={["initial", "center"]}
+          direction={["column", "row"]}
+          mt={2}
+          w="100%"
+          mb={4}
+        >
           <Flex align="center"></Flex>
         </Flex>
         {content}
       </Flex>
     </Stack>
-  )
-}
+  );
+};
 
-
-export default TranscriptPage
+export default TranscriptPage;
